@@ -1,0 +1,822 @@
+============================= test session starts =============================
+platform win32 -- Python 3.12.10, pytest-9.1.1, pluggy-1.6.0 -- C:\Users\Saurav\AppData\Local\Microsoft\WindowsApps\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\Saurav\Desktop\RiskPilot AI\apps\api
+configfile: pytest.ini
+plugins: anyio-4.12.1, asyncio-1.4.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 1 item
+
+tests/test_external_event_to_resolution.py::test_external_event_to_resolution FAILED [100%]
+
+================================== FAILURES ===================================
+______________________ test_external_event_to_resolution ______________________
+
+    @pytest.mark.asyncio
+    async def test_external_event_to_resolution():
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            # 1. Create Organization
+            org_res = await client.post("/v1/orgs", json={"name": "Acme Corp"})
+            assert org_res.status_code == 200
+            org_id = org_res.json()["id"]
+    
+            # 2. Create API Key
+            key_res = await client.post(f"/v1/orgs/{org_id}/apikeys")
+            assert key_res.status_code == 200
+            api_key = key_res.json()["key"]
+    
+            headers = {"Authorization": f"Bearer {api_key}"}
+            user_headers = {"X-Alpha-Organization-Id": org_id}
+    
+            # 3. Create Policy (acting as user)
+            policy_res = await client.post(
+                "/v1/policies",
+                json={
+                    "name": "Acme Default",
+                    "rules_config": {"Transaction Amount Anomaly": 20, "Suspicious IP": 25},
+                    "thresholds": {"escalate": 60, "hold": 30}
+                },
+                headers=user_headers
+            )
+            if policy_res.status_code != 200:
+                print(f"Policy Creation Failed: {policy_res.text}")
+            assert policy_res.status_code == 200
+    
+            # 4. Send External Event
+            event_payload = {
+                "source": "payment_gateway",
+                "external_id": "tx_1001",
+                "event_type": "transaction",
+                "occurred_at": datetime.now(timezone.utc).isoformat(),
+                "subject": "user_404",
+                "payload": {"amount": 5000, "ip": "192.168.1.1"}
+            }
+            ingest_res = await client.post("/v1/events/ingest", json=event_payload, headers=headers)
+>           assert ingest_res.status_code == 200
+E           assert 422 == 200
+E            +  where 422 = <Response [422 Unprocessable Entity]>.status_code
+
+tests\test_external_event_to_resolution.py:65: AssertionError
+---------------------------- Captured stdout setup ----------------------------
+2026-08-24 03:41:16,196 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-08-24 03:41:16,196 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("organizations")
+2026-08-24 03:41:16,196 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-08-24 03:41:16,196 INFO sqlalchemy.engine.Engine PRAGMA temp.table_info("organizations")
+2026-08-24 03:41:16,196 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-08-24 03:41:16,196 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("users")
+2026-08-24 03:41:16,196 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-08-24 03:41:16,212 INFO sqlalchemy.engine.Engine PRAGMA temp.table_info("users")
+2026-08-24 03:41:16,212 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-08-24 03:41:16,213 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("data_sources")
+2026-08-24 03:41:16,213 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-08-24 03:41:16,213 INFO sqlalchemy.engine.Engine PRAGMA temp.table_info("data_sources")
+2026-08-24 03:41:16,213 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-08-24 03:41:16,217 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("api_keys")
+2026-08-24 03:41:16,217 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-08-24 03:41:16,217 INFO sqlalchemy.engine.Engine PRAGMA temp.table_info("api_keys")
+2026-08-24 03:41:16,217 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-08-24 03:41:16,217 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("audit_trails")
+2026-08-24 03:41:16,217 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-08-24 03:41:16,217 INFO sqlalchemy.engine.Engine PRAGMA temp.table_info("audit_trails")
+2026-08-24 03:41:16,217 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-08-24 03:41:16,217 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("events")
+2026-08-24 03:41:16,217 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-08-24 03:41:16,217 INFO sqlalchemy.engine.Engine PRAGMA temp.table_info("events")
+2026-08-24 03:41:16,217 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-08-24 03:41:16,217 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("risk_cases")
+2026-08-24 03:41:16,217 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-08-24 03:41:16,217 INFO sqlalchemy.engine.Engine PRAGMA temp.table_info("risk_cases")
+2026-08-24 03:41:16,217 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-08-24 03:41:16,217 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("investigations")
+2026-08-24 03:41:16,217 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-08-24 03:41:16,217 INFO sqlalchemy.engine.Engine PRAGMA temp.table_info("investigations")
+2026-08-24 03:41:16,217 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-08-24 03:41:16,229 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("decisions")
+2026-08-24 03:41:16,229 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-08-24 03:41:16,229 INFO sqlalchemy.engine.Engine PRAGMA temp.table_info("decisions")
+2026-08-24 03:41:16,229 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-08-24 03:41:16,229 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("evidence")
+2026-08-24 03:41:16,229 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-08-24 03:41:16,229 INFO sqlalchemy.engine.Engine PRAGMA temp.table_info("evidence")
+2026-08-24 03:41:16,229 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-08-24 03:41:16,229 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("policies")
+2026-08-24 03:41:16,229 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-08-24 03:41:16,229 INFO sqlalchemy.engine.Engine PRAGMA temp.table_info("policies")
+2026-08-24 03:41:16,229 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-08-24 03:41:16,229 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("risk_assessments")
+2026-08-24 03:41:16,229 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-08-24 03:41:16,229 INFO sqlalchemy.engine.Engine PRAGMA temp.table_info("risk_assessments")
+2026-08-24 03:41:16,229 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-08-24 03:41:16,229 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("relationships")
+2026-08-24 03:41:16,229 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-08-24 03:41:16,229 INFO sqlalchemy.engine.Engine PRAGMA temp.table_info("relationships")
+2026-08-24 03:41:16,229 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-08-24 03:41:16,229 INFO sqlalchemy.engine.Engine 
+CREATE TABLE organizations (
+	id VARCHAR NOT NULL, 
+	name VARCHAR, 
+	created_at DATETIME, 
+	PRIMARY KEY (id)
+)
+
+
+2026-08-24 03:41:16,229 INFO sqlalchemy.engine.Engine [no key 0.00022s] ()
+2026-08-24 03:41:16,246 INFO sqlalchemy.engine.Engine 
+CREATE TABLE relationships (
+	id VARCHAR NOT NULL, 
+	source_id VARCHAR, 
+	target_id VARCHAR, 
+	relationship_type VARCHAR, 
+	created_at DATETIME, 
+	PRIMARY KEY (id)
+)
+
+
+2026-08-24 03:41:16,246 INFO sqlalchemy.engine.Engine [no key 0.00029s] ()
+2026-08-24 03:41:16,246 INFO sqlalchemy.engine.Engine 
+CREATE TABLE users (
+	id VARCHAR NOT NULL, 
+	organization_id VARCHAR, 
+	email VARCHAR, 
+	role VARCHAR, 
+	created_at DATETIME, 
+	PRIMARY KEY (id), 
+	FOREIGN KEY(organization_id) REFERENCES organizations (id), 
+	UNIQUE (email)
+)
+
+
+2026-08-24 03:41:16,246 INFO sqlalchemy.engine.Engine [no key 0.00024s] ()
+2026-08-24 03:41:16,263 INFO sqlalchemy.engine.Engine 
+CREATE TABLE data_sources (
+	id VARCHAR NOT NULL, 
+	organization_id VARCHAR, 
+	name VARCHAR, 
+	source_type VARCHAR, 
+	created_at DATETIME, 
+	PRIMARY KEY (id), 
+	FOREIGN KEY(organization_id) REFERENCES organizations (id)
+)
+
+
+2026-08-24 03:41:16,264 INFO sqlalchemy.engine.Engine [no key 0.00038s] ()
+2026-08-24 03:41:16,264 INFO sqlalchemy.engine.Engine 
+CREATE TABLE api_keys (
+	id VARCHAR NOT NULL, 
+	organization_id VARCHAR, 
+	name VARCHAR, 
+	key_hash VARCHAR NOT NULL, 
+	prefix VARCHAR, 
+	created_at DATETIME, 
+	PRIMARY KEY (id), 
+	FOREIGN KEY(organization_id) REFERENCES organizations (id), 
+	UNIQUE (key_hash)
+)
+
+
+2026-08-24 03:41:16,264 INFO sqlalchemy.engine.Engine [no key 0.00029s] ()
+2026-08-24 03:41:16,264 INFO sqlalchemy.engine.Engine 
+CREATE TABLE events (
+	id VARCHAR NOT NULL, 
+	event_id VARCHAR NOT NULL, 
+	organization_id VARCHAR NOT NULL, 
+	source VARCHAR NOT NULL, 
+	external_id VARCHAR NOT NULL, 
+	event_type VARCHAR, 
+	payload JSON, 
+	timestamp DATETIME, 
+	PRIMARY KEY (id), 
+	CONSTRAINT uq_event_org_source_ext UNIQUE (organization_id, source, external_id), 
+	UNIQUE (event_id), 
+	FOREIGN KEY(organization_id) REFERENCES organizations (id)
+)
+
+
+2026-08-24 03:41:16,264 INFO sqlalchemy.engine.Engine [no key 0.00023s] ()
+2026-08-24 03:41:16,280 INFO sqlalchemy.engine.Engine 
+CREATE TABLE policies (
+	id VARCHAR NOT NULL, 
+	organization_id VARCHAR, 
+	name VARCHAR, 
+	version INTEGER, 
+	rules_config JSON, 
+	thresholds JSON, 
+	is_active BOOLEAN, 
+	created_at DATETIME, 
+	PRIMARY KEY (id), 
+	CONSTRAINT uq_policy_org_name_version UNIQUE (organization_id, name, version), 
+	FOREIGN KEY(organization_id) REFERENCES organizations (id)
+)
+
+
+2026-08-24 03:41:16,280 INFO sqlalchemy.engine.Engine [no key 0.00029s] ()
+2026-08-24 03:41:16,280 INFO sqlalchemy.engine.Engine 
+CREATE TABLE audit_trails (
+	id VARCHAR NOT NULL, 
+	entity_type VARCHAR, 
+	entity_id VARCHAR, 
+	action VARCHAR, 
+	user_id VARCHAR, 
+	previous_hash VARCHAR, 
+	hash VARCHAR, 
+	metadata_json JSON, 
+	timestamp DATETIME, 
+	PRIMARY KEY (id), 
+	FOREIGN KEY(user_id) REFERENCES users (id)
+)
+
+
+2026-08-24 03:41:16,280 INFO sqlalchemy.engine.Engine [no key 0.00022s] ()
+2026-08-24 03:41:16,296 INFO sqlalchemy.engine.Engine 
+CREATE TABLE risk_cases (
+	id VARCHAR NOT NULL, 
+	organization_id VARCHAR NOT NULL, 
+	event_id VARCHAR, 
+	status VARCHAR, 
+	priority VARCHAR, 
+	assigned_to VARCHAR, 
+	attempt_count INTEGER, 
+	last_error TEXT, 
+	claimed_at DATETIME, 
+	completed_at DATETIME, 
+	worker_id VARCHAR, 
+	created_at DATETIME, 
+	PRIMARY KEY (id), 
+	FOREIGN KEY(organization_id) REFERENCES organizations (id), 
+	FOREIGN KEY(event_id) REFERENCES events (id), 
+	FOREIGN KEY(assigned_to) REFERENCES users (id)
+)
+
+
+2026-08-24 03:41:16,296 INFO sqlalchemy.engine.Engine [no key 0.00029s] ()
+2026-08-24 03:41:16,296 INFO sqlalchemy.engine.Engine 
+CREATE TABLE investigations (
+	id VARCHAR NOT NULL, 
+	risk_case_id VARCHAR, 
+	status VARCHAR, 
+	started_at DATETIME, 
+	completed_at DATETIME, 
+	PRIMARY KEY (id), 
+	FOREIGN KEY(risk_case_id) REFERENCES risk_cases (id)
+)
+
+
+2026-08-24 03:41:16,296 INFO sqlalchemy.engine.Engine [no key 0.00025s] ()
+2026-08-24 03:41:16,296 INFO sqlalchemy.engine.Engine 
+CREATE TABLE decisions (
+	id VARCHAR NOT NULL, 
+	risk_case_id VARCHAR, 
+	actor_id VARCHAR, 
+	system_recommendation VARCHAR, 
+	human_decision VARCHAR, 
+	reason TEXT, 
+	policy_version INTEGER, 
+	created_at DATETIME, 
+	PRIMARY KEY (id), 
+	FOREIGN KEY(risk_case_id) REFERENCES risk_cases (id), 
+	FOREIGN KEY(actor_id) REFERENCES users (id)
+)
+
+
+2026-08-24 03:41:16,296 INFO sqlalchemy.engine.Engine [no key 0.00022s] ()
+2026-08-24 03:41:16,313 INFO sqlalchemy.engine.Engine 
+CREATE TABLE risk_assessments (
+	id VARCHAR NOT NULL, 
+	risk_case_id VARCHAR, 
+	policy_id VARCHAR, 
+	policy_version INTEGER, 
+	policy_snapshot JSON, 
+	signals_snapshot JSON, 
+	risk_score INTEGER, 
+	recommendation VARCHAR, 
+	rationale TEXT, 
+	created_at DATETIME, 
+	PRIMARY KEY (id), 
+	FOREIGN KEY(risk_case_id) REFERENCES risk_cases (id), 
+	FOREIGN KEY(policy_id) REFERENCES policies (id)
+)
+
+
+2026-08-24 03:41:16,317 INFO sqlalchemy.engine.Engine [no key 0.00030s] ()
+2026-08-24 03:41:16,317 INFO sqlalchemy.engine.Engine 
+CREATE TABLE evidence (
+	id VARCHAR NOT NULL, 
+	investigation_id VARCHAR, 
+	evidence_type VARCHAR, 
+	source VARCHAR, 
+	severity VARCHAR, 
+	weight INTEGER, 
+	confidence FLOAT, 
+	value JSON, 
+	explanation TEXT, 
+	created_at DATETIME, 
+	PRIMARY KEY (id), 
+	FOREIGN KEY(investigation_id) REFERENCES investigations (id)
+)
+
+
+2026-08-24 03:41:16,317 INFO sqlalchemy.engine.Engine [no key 0.00024s] ()
+2026-08-24 03:41:16,329 INFO sqlalchemy.engine.Engine COMMIT
+----------------------------- Captured log setup ------------------------------
+INFO     sqlalchemy.engine.Engine:base.py:2712 BEGIN (implicit)
+INFO     sqlalchemy.engine.Engine:base.py:1848 PRAGMA main.table_info("organizations")
+INFO     sqlalchemy.engine.Engine:base.py:1848 [raw sql] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 PRAGMA temp.table_info("organizations")
+INFO     sqlalchemy.engine.Engine:base.py:1848 [raw sql] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 PRAGMA main.table_info("users")
+INFO     sqlalchemy.engine.Engine:base.py:1848 [raw sql] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 PRAGMA temp.table_info("users")
+INFO     sqlalchemy.engine.Engine:base.py:1848 [raw sql] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 PRAGMA main.table_info("data_sources")
+INFO     sqlalchemy.engine.Engine:base.py:1848 [raw sql] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 PRAGMA temp.table_info("data_sources")
+INFO     sqlalchemy.engine.Engine:base.py:1848 [raw sql] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 PRAGMA main.table_info("api_keys")
+INFO     sqlalchemy.engine.Engine:base.py:1848 [raw sql] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 PRAGMA temp.table_info("api_keys")
+INFO     sqlalchemy.engine.Engine:base.py:1848 [raw sql] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 PRAGMA main.table_info("audit_trails")
+INFO     sqlalchemy.engine.Engine:base.py:1848 [raw sql] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 PRAGMA temp.table_info("audit_trails")
+INFO     sqlalchemy.engine.Engine:base.py:1848 [raw sql] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 PRAGMA main.table_info("events")
+INFO     sqlalchemy.engine.Engine:base.py:1848 [raw sql] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 PRAGMA temp.table_info("events")
+INFO     sqlalchemy.engine.Engine:base.py:1848 [raw sql] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 PRAGMA main.table_info("risk_cases")
+INFO     sqlalchemy.engine.Engine:base.py:1848 [raw sql] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 PRAGMA temp.table_info("risk_cases")
+INFO     sqlalchemy.engine.Engine:base.py:1848 [raw sql] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 PRAGMA main.table_info("investigations")
+INFO     sqlalchemy.engine.Engine:base.py:1848 [raw sql] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 PRAGMA temp.table_info("investigations")
+INFO     sqlalchemy.engine.Engine:base.py:1848 [raw sql] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 PRAGMA main.table_info("decisions")
+INFO     sqlalchemy.engine.Engine:base.py:1848 [raw sql] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 PRAGMA temp.table_info("decisions")
+INFO     sqlalchemy.engine.Engine:base.py:1848 [raw sql] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 PRAGMA main.table_info("evidence")
+INFO     sqlalchemy.engine.Engine:base.py:1848 [raw sql] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 PRAGMA temp.table_info("evidence")
+INFO     sqlalchemy.engine.Engine:base.py:1848 [raw sql] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 PRAGMA main.table_info("policies")
+INFO     sqlalchemy.engine.Engine:base.py:1848 [raw sql] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 PRAGMA temp.table_info("policies")
+INFO     sqlalchemy.engine.Engine:base.py:1848 [raw sql] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 PRAGMA main.table_info("risk_assessments")
+INFO     sqlalchemy.engine.Engine:base.py:1848 [raw sql] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 PRAGMA temp.table_info("risk_assessments")
+INFO     sqlalchemy.engine.Engine:base.py:1848 [raw sql] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 PRAGMA main.table_info("relationships")
+INFO     sqlalchemy.engine.Engine:base.py:1848 [raw sql] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 PRAGMA temp.table_info("relationships")
+INFO     sqlalchemy.engine.Engine:base.py:1848 [raw sql] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 
+CREATE TABLE organizations (
+	id VARCHAR NOT NULL, 
+	name VARCHAR, 
+	created_at DATETIME, 
+	PRIMARY KEY (id)
+)
+
+
+INFO     sqlalchemy.engine.Engine:base.py:1848 [no key 0.00022s] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 
+CREATE TABLE relationships (
+	id VARCHAR NOT NULL, 
+	source_id VARCHAR, 
+	target_id VARCHAR, 
+	relationship_type VARCHAR, 
+	created_at DATETIME, 
+	PRIMARY KEY (id)
+)
+
+
+INFO     sqlalchemy.engine.Engine:base.py:1848 [no key 0.00029s] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 
+CREATE TABLE users (
+	id VARCHAR NOT NULL, 
+	organization_id VARCHAR, 
+	email VARCHAR, 
+	role VARCHAR, 
+	created_at DATETIME, 
+	PRIMARY KEY (id), 
+	FOREIGN KEY(organization_id) REFERENCES organizations (id), 
+	UNIQUE (email)
+)
+
+
+INFO     sqlalchemy.engine.Engine:base.py:1848 [no key 0.00024s] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 
+CREATE TABLE data_sources (
+	id VARCHAR NOT NULL, 
+	organization_id VARCHAR, 
+	name VARCHAR, 
+	source_type VARCHAR, 
+	created_at DATETIME, 
+	PRIMARY KEY (id), 
+	FOREIGN KEY(organization_id) REFERENCES organizations (id)
+)
+
+
+INFO     sqlalchemy.engine.Engine:base.py:1848 [no key 0.00038s] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 
+CREATE TABLE api_keys (
+	id VARCHAR NOT NULL, 
+	organization_id VARCHAR, 
+	name VARCHAR, 
+	key_hash VARCHAR NOT NULL, 
+	prefix VARCHAR, 
+	created_at DATETIME, 
+	PRIMARY KEY (id), 
+	FOREIGN KEY(organization_id) REFERENCES organizations (id), 
+	UNIQUE (key_hash)
+)
+
+
+INFO     sqlalchemy.engine.Engine:base.py:1848 [no key 0.00029s] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 
+CREATE TABLE events (
+	id VARCHAR NOT NULL, 
+	event_id VARCHAR NOT NULL, 
+	organization_id VARCHAR NOT NULL, 
+	source VARCHAR NOT NULL, 
+	external_id VARCHAR NOT NULL, 
+	event_type VARCHAR, 
+	payload JSON, 
+	timestamp DATETIME, 
+	PRIMARY KEY (id), 
+	CONSTRAINT uq_event_org_source_ext UNIQUE (organization_id, source, external_id), 
+	UNIQUE (event_id), 
+	FOREIGN KEY(organization_id) REFERENCES organizations (id)
+)
+
+
+INFO     sqlalchemy.engine.Engine:base.py:1848 [no key 0.00023s] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 
+CREATE TABLE policies (
+	id VARCHAR NOT NULL, 
+	organization_id VARCHAR, 
+	name VARCHAR, 
+	version INTEGER, 
+	rules_config JSON, 
+	thresholds JSON, 
+	is_active BOOLEAN, 
+	created_at DATETIME, 
+	PRIMARY KEY (id), 
+	CONSTRAINT uq_policy_org_name_version UNIQUE (organization_id, name, version), 
+	FOREIGN KEY(organization_id) REFERENCES organizations (id)
+)
+
+
+INFO     sqlalchemy.engine.Engine:base.py:1848 [no key 0.00029s] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 
+CREATE TABLE audit_trails (
+	id VARCHAR NOT NULL, 
+	entity_type VARCHAR, 
+	entity_id VARCHAR, 
+	action VARCHAR, 
+	user_id VARCHAR, 
+	previous_hash VARCHAR, 
+	hash VARCHAR, 
+	metadata_json JSON, 
+	timestamp DATETIME, 
+	PRIMARY KEY (id), 
+	FOREIGN KEY(user_id) REFERENCES users (id)
+)
+
+
+INFO     sqlalchemy.engine.Engine:base.py:1848 [no key 0.00022s] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 
+CREATE TABLE risk_cases (
+	id VARCHAR NOT NULL, 
+	organization_id VARCHAR NOT NULL, 
+	event_id VARCHAR, 
+	status VARCHAR, 
+	priority VARCHAR, 
+	assigned_to VARCHAR, 
+	attempt_count INTEGER, 
+	last_error TEXT, 
+	claimed_at DATETIME, 
+	completed_at DATETIME, 
+	worker_id VARCHAR, 
+	created_at DATETIME, 
+	PRIMARY KEY (id), 
+	FOREIGN KEY(organization_id) REFERENCES organizations (id), 
+	FOREIGN KEY(event_id) REFERENCES events (id), 
+	FOREIGN KEY(assigned_to) REFERENCES users (id)
+)
+
+
+INFO     sqlalchemy.engine.Engine:base.py:1848 [no key 0.00029s] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 
+CREATE TABLE investigations (
+	id VARCHAR NOT NULL, 
+	risk_case_id VARCHAR, 
+	status VARCHAR, 
+	started_at DATETIME, 
+	completed_at DATETIME, 
+	PRIMARY KEY (id), 
+	FOREIGN KEY(risk_case_id) REFERENCES risk_cases (id)
+)
+
+
+INFO     sqlalchemy.engine.Engine:base.py:1848 [no key 0.00025s] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 
+CREATE TABLE decisions (
+	id VARCHAR NOT NULL, 
+	risk_case_id VARCHAR, 
+	actor_id VARCHAR, 
+	system_recommendation VARCHAR, 
+	human_decision VARCHAR, 
+	reason TEXT, 
+	policy_version INTEGER, 
+	created_at DATETIME, 
+	PRIMARY KEY (id), 
+	FOREIGN KEY(risk_case_id) REFERENCES risk_cases (id), 
+	FOREIGN KEY(actor_id) REFERENCES users (id)
+)
+
+
+INFO     sqlalchemy.engine.Engine:base.py:1848 [no key 0.00022s] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 
+CREATE TABLE risk_assessments (
+	id VARCHAR NOT NULL, 
+	risk_case_id VARCHAR, 
+	policy_id VARCHAR, 
+	policy_version INTEGER, 
+	policy_snapshot JSON, 
+	signals_snapshot JSON, 
+	risk_score INTEGER, 
+	recommendation VARCHAR, 
+	rationale TEXT, 
+	created_at DATETIME, 
+	PRIMARY KEY (id), 
+	FOREIGN KEY(risk_case_id) REFERENCES risk_cases (id), 
+	FOREIGN KEY(policy_id) REFERENCES policies (id)
+)
+
+
+INFO     sqlalchemy.engine.Engine:base.py:1848 [no key 0.00030s] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 
+CREATE TABLE evidence (
+	id VARCHAR NOT NULL, 
+	investigation_id VARCHAR, 
+	evidence_type VARCHAR, 
+	source VARCHAR, 
+	severity VARCHAR, 
+	weight INTEGER, 
+	confidence FLOAT, 
+	value JSON, 
+	explanation TEXT, 
+	created_at DATETIME, 
+	PRIMARY KEY (id), 
+	FOREIGN KEY(investigation_id) REFERENCES investigations (id)
+)
+
+
+INFO     sqlalchemy.engine.Engine:base.py:1848 [no key 0.00024s] ()
+INFO     sqlalchemy.engine.Engine:base.py:2718 COMMIT
+---------------------------- Captured stdout call -----------------------------
+2026-08-24 03:41:16,434 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-08-24 03:41:16,434 INFO sqlalchemy.engine.Engine INSERT INTO organizations (id, name, created_at) VALUES (?, ?, ?)
+2026-08-24 03:41:16,434 INFO sqlalchemy.engine.Engine [generated in 0.00040s] ('org_935a199fd38c', 'Acme Corp', '2026-08-23 22:11:16.434318')
+2026-08-24 03:41:16,434 INFO sqlalchemy.engine.Engine COMMIT
+2026-08-24 03:41:16,446 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-08-24 03:41:16,448 INFO sqlalchemy.engine.Engine SELECT organizations.id, organizations.name, organizations.created_at 
+FROM organizations 
+WHERE organizations.id = ?
+2026-08-24 03:41:16,448 INFO sqlalchemy.engine.Engine [generated in 0.00036s] ('org_935a199fd38c',)
+2026-08-24 03:41:16,448 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-08-24 03:41:16,448 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-08-24 03:41:16,448 INFO sqlalchemy.engine.Engine SELECT organizations.id, organizations.name, organizations.created_at 
+FROM organizations 
+WHERE organizations.id = ?
+2026-08-24 03:41:16,448 INFO sqlalchemy.engine.Engine [generated in 0.00028s] ('org_935a199fd38c',)
+2026-08-24 03:41:16,460 INFO sqlalchemy.engine.Engine INSERT INTO api_keys (id, organization_id, name, key_hash, prefix, created_at) VALUES (?, ?, ?, ?, ?, ?)
+2026-08-24 03:41:16,460 INFO sqlalchemy.engine.Engine [generated in 0.00034s] ('key_73521d2a8740', 'org_935a199fd38c', 'Production Key', '5c3ceaa3d32b8f43219140b8287bf67b8adbb78db3cd1f05e581c6bf1bbb546d', 'rp_live_rgkC', '2026-08-23 22:11:16.460165')
+2026-08-24 03:41:16,463 INFO sqlalchemy.engine.Engine COMMIT
+2026-08-24 03:41:16,484 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-08-24 03:41:16,484 INFO sqlalchemy.engine.Engine INSERT INTO policies (id, organization_id, name, version, rules_config, thresholds, is_active, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+2026-08-24 03:41:16,484 INFO sqlalchemy.engine.Engine [generated in 0.00040s] ('pol_88ddc524252f', 'org_935a199fd38c', 'Acme Default', 1, '{"Transaction Amount Anomaly": 20, "Suspicious IP": 25}', '{"escalate": 60, "hold": 30}', 1, '2026-08-23 22:11:16.484971')
+2026-08-24 03:41:16,484 INFO sqlalchemy.engine.Engine COMMIT
+2026-08-24 03:41:16,496 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-08-24 03:41:16,498 INFO sqlalchemy.engine.Engine SELECT policies.id, policies.organization_id, policies.name, policies.version, policies.rules_config, policies.thresholds, policies.is_active, policies.created_at 
+FROM policies 
+WHERE policies.id = ?
+2026-08-24 03:41:16,498 INFO sqlalchemy.engine.Engine [generated in 0.00031s] ('pol_88ddc524252f',)
+2026-08-24 03:41:16,500 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-08-24 03:41:16,500 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-08-24 03:41:16,500 INFO sqlalchemy.engine.Engine SELECT api_keys.id, api_keys.organization_id, api_keys.name, api_keys.key_hash, api_keys.prefix, api_keys.created_at 
+FROM api_keys 
+WHERE api_keys.key_hash = ?
+2026-08-24 03:41:16,500 INFO sqlalchemy.engine.Engine [generated in 0.00026s] ('5c3ceaa3d32b8f43219140b8287bf67b8adbb78db3cd1f05e581c6bf1bbb546d',)
+2026-08-24 03:41:16,500 INFO sqlalchemy.engine.Engine ROLLBACK
+------------------------------ Captured log call ------------------------------
+INFO     sqlalchemy.engine.Engine:base.py:2712 BEGIN (implicit)
+INFO     sqlalchemy.engine.Engine:base.py:1848 INSERT INTO organizations (id, name, created_at) VALUES (?, ?, ?)
+INFO     sqlalchemy.engine.Engine:base.py:1848 [generated in 0.00040s] ('org_935a199fd38c', 'Acme Corp', '2026-08-23 22:11:16.434318')
+INFO     sqlalchemy.engine.Engine:base.py:2718 COMMIT
+INFO     sqlalchemy.engine.Engine:base.py:2712 BEGIN (implicit)
+INFO     sqlalchemy.engine.Engine:base.py:1848 SELECT organizations.id, organizations.name, organizations.created_at 
+FROM organizations 
+WHERE organizations.id = ?
+INFO     sqlalchemy.engine.Engine:base.py:1848 [generated in 0.00036s] ('org_935a199fd38c',)
+INFO     sqlalchemy.engine.Engine:base.py:2715 ROLLBACK
+INFO     sqlalchemy.engine.Engine:base.py:2712 BEGIN (implicit)
+INFO     sqlalchemy.engine.Engine:base.py:1848 SELECT organizations.id, organizations.name, organizations.created_at 
+FROM organizations 
+WHERE organizations.id = ?
+INFO     sqlalchemy.engine.Engine:base.py:1848 [generated in 0.00028s] ('org_935a199fd38c',)
+INFO     sqlalchemy.engine.Engine:base.py:1848 INSERT INTO api_keys (id, organization_id, name, key_hash, prefix, created_at) VALUES (?, ?, ?, ?, ?, ?)
+INFO     sqlalchemy.engine.Engine:base.py:1848 [generated in 0.00034s] ('key_73521d2a8740', 'org_935a199fd38c', 'Production Key', '5c3ceaa3d32b8f43219140b8287bf67b8adbb78db3cd1f05e581c6bf1bbb546d', 'rp_live_rgkC', '2026-08-23 22:11:16.460165')
+INFO     sqlalchemy.engine.Engine:base.py:2718 COMMIT
+INFO     sqlalchemy.engine.Engine:base.py:2712 BEGIN (implicit)
+INFO     sqlalchemy.engine.Engine:base.py:1848 INSERT INTO policies (id, organization_id, name, version, rules_config, thresholds, is_active, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+INFO     sqlalchemy.engine.Engine:base.py:1848 [generated in 0.00040s] ('pol_88ddc524252f', 'org_935a199fd38c', 'Acme Default', 1, '{"Transaction Amount Anomaly": 20, "Suspicious IP": 25}', '{"escalate": 60, "hold": 30}', 1, '2026-08-23 22:11:16.484971')
+INFO     sqlalchemy.engine.Engine:base.py:2718 COMMIT
+INFO     sqlalchemy.engine.Engine:base.py:2712 BEGIN (implicit)
+INFO     sqlalchemy.engine.Engine:base.py:1848 SELECT policies.id, policies.organization_id, policies.name, policies.version, policies.rules_config, policies.thresholds, policies.is_active, policies.created_at 
+FROM policies 
+WHERE policies.id = ?
+INFO     sqlalchemy.engine.Engine:base.py:1848 [generated in 0.00031s] ('pol_88ddc524252f',)
+INFO     sqlalchemy.engine.Engine:base.py:2715 ROLLBACK
+INFO     sqlalchemy.engine.Engine:base.py:2712 BEGIN (implicit)
+INFO     sqlalchemy.engine.Engine:base.py:1848 SELECT api_keys.id, api_keys.organization_id, api_keys.name, api_keys.key_hash, api_keys.prefix, api_keys.created_at 
+FROM api_keys 
+WHERE api_keys.key_hash = ?
+INFO     sqlalchemy.engine.Engine:base.py:1848 [generated in 0.00026s] ('5c3ceaa3d32b8f43219140b8287bf67b8adbb78db3cd1f05e581c6bf1bbb546d',)
+INFO     sqlalchemy.engine.Engine:base.py:2715 ROLLBACK
+-------------------------- Captured stdout teardown ---------------------------
+2026-08-24 03:41:16,900 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-08-24 03:41:16,901 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("organizations")
+2026-08-24 03:41:16,901 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-08-24 03:41:16,902 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("users")
+2026-08-24 03:41:16,902 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-08-24 03:41:16,903 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("data_sources")
+2026-08-24 03:41:16,904 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-08-24 03:41:16,905 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("api_keys")
+2026-08-24 03:41:16,905 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-08-24 03:41:16,906 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("audit_trails")
+2026-08-24 03:41:16,907 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-08-24 03:41:16,908 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("events")
+2026-08-24 03:41:16,908 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-08-24 03:41:16,909 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("risk_cases")
+2026-08-24 03:41:16,910 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-08-24 03:41:16,911 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("investigations")
+2026-08-24 03:41:16,911 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-08-24 03:41:16,913 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("decisions")
+2026-08-24 03:41:16,913 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-08-24 03:41:16,914 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("evidence")
+2026-08-24 03:41:16,914 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-08-24 03:41:16,916 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("policies")
+2026-08-24 03:41:16,916 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-08-24 03:41:16,917 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("risk_assessments")
+2026-08-24 03:41:16,918 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-08-24 03:41:16,919 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("relationships")
+2026-08-24 03:41:16,919 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-08-24 03:41:16,920 INFO sqlalchemy.engine.Engine 
+DROP TABLE evidence
+2026-08-24 03:41:16,920 INFO sqlalchemy.engine.Engine [no key 0.00018s] ()
+2026-08-24 03:41:16,946 INFO sqlalchemy.engine.Engine 
+DROP TABLE risk_assessments
+2026-08-24 03:41:16,946 INFO sqlalchemy.engine.Engine [no key 0.00034s] ()
+2026-08-24 03:41:16,954 INFO sqlalchemy.engine.Engine 
+DROP TABLE decisions
+2026-08-24 03:41:16,954 INFO sqlalchemy.engine.Engine [no key 0.00028s] ()
+2026-08-24 03:41:16,962 INFO sqlalchemy.engine.Engine 
+DROP TABLE investigations
+2026-08-24 03:41:16,962 INFO sqlalchemy.engine.Engine [no key 0.00027s] ()
+2026-08-24 03:41:16,968 INFO sqlalchemy.engine.Engine 
+DROP TABLE risk_cases
+2026-08-24 03:41:16,968 INFO sqlalchemy.engine.Engine [no key 0.00027s] ()
+2026-08-24 03:41:16,974 INFO sqlalchemy.engine.Engine 
+DROP TABLE audit_trails
+2026-08-24 03:41:16,974 INFO sqlalchemy.engine.Engine [no key 0.00024s] ()
+2026-08-24 03:41:16,981 INFO sqlalchemy.engine.Engine 
+DROP TABLE policies
+2026-08-24 03:41:16,981 INFO sqlalchemy.engine.Engine [no key 0.00029s] ()
+2026-08-24 03:41:16,988 INFO sqlalchemy.engine.Engine 
+DROP TABLE events
+2026-08-24 03:41:16,988 INFO sqlalchemy.engine.Engine [no key 0.00024s] ()
+2026-08-24 03:41:16,994 INFO sqlalchemy.engine.Engine 
+DROP TABLE api_keys
+2026-08-24 03:41:16,995 INFO sqlalchemy.engine.Engine [no key 0.00024s] ()
+2026-08-24 03:41:17,001 INFO sqlalchemy.engine.Engine 
+DROP TABLE data_sources
+2026-08-24 03:41:17,001 INFO sqlalchemy.engine.Engine [no key 0.00028s] ()
+2026-08-24 03:41:17,007 INFO sqlalchemy.engine.Engine 
+DROP TABLE users
+2026-08-24 03:41:17,007 INFO sqlalchemy.engine.Engine [no key 0.00021s] ()
+2026-08-24 03:41:17,013 INFO sqlalchemy.engine.Engine 
+DROP TABLE relationships
+2026-08-24 03:41:17,014 INFO sqlalchemy.engine.Engine [no key 0.00029s] ()
+2026-08-24 03:41:17,020 INFO sqlalchemy.engine.Engine 
+DROP TABLE organizations
+2026-08-24 03:41:17,020 INFO sqlalchemy.engine.Engine [no key 0.00026s] ()
+2026-08-24 03:41:17,027 INFO sqlalchemy.engine.Engine COMMIT
+---------------------------- Captured log teardown ----------------------------
+INFO     sqlalchemy.engine.Engine:base.py:2712 BEGIN (implicit)
+INFO     sqlalchemy.engine.Engine:base.py:1848 PRAGMA main.table_info("organizations")
+INFO     sqlalchemy.engine.Engine:base.py:1848 [raw sql] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 PRAGMA main.table_info("users")
+INFO     sqlalchemy.engine.Engine:base.py:1848 [raw sql] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 PRAGMA main.table_info("data_sources")
+INFO     sqlalchemy.engine.Engine:base.py:1848 [raw sql] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 PRAGMA main.table_info("api_keys")
+INFO     sqlalchemy.engine.Engine:base.py:1848 [raw sql] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 PRAGMA main.table_info("audit_trails")
+INFO     sqlalchemy.engine.Engine:base.py:1848 [raw sql] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 PRAGMA main.table_info("events")
+INFO     sqlalchemy.engine.Engine:base.py:1848 [raw sql] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 PRAGMA main.table_info("risk_cases")
+INFO     sqlalchemy.engine.Engine:base.py:1848 [raw sql] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 PRAGMA main.table_info("investigations")
+INFO     sqlalchemy.engine.Engine:base.py:1848 [raw sql] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 PRAGMA main.table_info("decisions")
+INFO     sqlalchemy.engine.Engine:base.py:1848 [raw sql] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 PRAGMA main.table_info("evidence")
+INFO     sqlalchemy.engine.Engine:base.py:1848 [raw sql] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 PRAGMA main.table_info("policies")
+INFO     sqlalchemy.engine.Engine:base.py:1848 [raw sql] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 PRAGMA main.table_info("risk_assessments")
+INFO     sqlalchemy.engine.Engine:base.py:1848 [raw sql] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 PRAGMA main.table_info("relationships")
+INFO     sqlalchemy.engine.Engine:base.py:1848 [raw sql] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 
+DROP TABLE evidence
+INFO     sqlalchemy.engine.Engine:base.py:1848 [no key 0.00018s] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 
+DROP TABLE risk_assessments
+INFO     sqlalchemy.engine.Engine:base.py:1848 [no key 0.00034s] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 
+DROP TABLE decisions
+INFO     sqlalchemy.engine.Engine:base.py:1848 [no key 0.00028s] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 
+DROP TABLE investigations
+INFO     sqlalchemy.engine.Engine:base.py:1848 [no key 0.00027s] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 
+DROP TABLE risk_cases
+INFO     sqlalchemy.engine.Engine:base.py:1848 [no key 0.00027s] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 
+DROP TABLE audit_trails
+INFO     sqlalchemy.engine.Engine:base.py:1848 [no key 0.00024s] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 
+DROP TABLE policies
+INFO     sqlalchemy.engine.Engine:base.py:1848 [no key 0.00029s] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 
+DROP TABLE events
+INFO     sqlalchemy.engine.Engine:base.py:1848 [no key 0.00024s] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 
+DROP TABLE api_keys
+INFO     sqlalchemy.engine.Engine:base.py:1848 [no key 0.00024s] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 
+DROP TABLE data_sources
+INFO     sqlalchemy.engine.Engine:base.py:1848 [no key 0.00028s] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 
+DROP TABLE users
+INFO     sqlalchemy.engine.Engine:base.py:1848 [no key 0.00021s] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 
+DROP TABLE relationships
+INFO     sqlalchemy.engine.Engine:base.py:1848 [no key 0.00029s] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 
+DROP TABLE organizations
+INFO     sqlalchemy.engine.Engine:base.py:1848 [no key 0.00026s] ()
+INFO     sqlalchemy.engine.Engine:base.py:2718 COMMIT
+============================== warnings summary ===============================
+..\..\packages\schemas\events.py:14
+  C:\Users\Saurav\Desktop\RiskPilot AI\packages\schemas\events.py:14: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class EventResponse(BaseModel):
+
+..\..\packages\schemas\cases.py:6
+  C:\Users\Saurav\Desktop\RiskPilot AI\packages\schemas\cases.py:6: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class RiskCaseResponse(BaseModel):
+
+app\main.py:45
+  C:\Users\Saurav\Desktop\RiskPilot AI\apps\api\app\main.py:45: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("startup")
+
+..\..\..\..\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\fastapi\applications.py:4681
+  C:\Users\Saurav\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\fastapi\applications.py:4681: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    return self.router.on_event(event_type)  # ty: ignore[deprecated]
+
+tests/test_external_event_to_resolution.py::test_external_event_to_resolution
+tests/test_external_event_to_resolution.py::test_external_event_to_resolution
+tests/test_external_event_to_resolution.py::test_external_event_to_resolution
+  C:\Users\Saurav\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\site-packages\sqlalchemy\sql\schema.py:3627: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    return util.wrap_callable(lambda ctx: fn(), fn)  # type: ignore
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_external_event_to_resolution.py::test_external_event_to_resolution
+======================== 1 failed, 7 warnings in 2.32s ========================

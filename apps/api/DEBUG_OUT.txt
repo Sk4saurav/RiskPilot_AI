@@ -1,0 +1,2 @@
+DEBUG_CASES: ['132a119a-d232-416c-8b42-524ee47b3d8c'], statuses: ['NEW']
+CASE_DATA_END: {'id': '132a119a-d232-416c-8b42-524ee47b3d8c', 'event_id': 'a37594b6-5c26-4436-b0d6-5e3fa5b55310', 'status': 'PENDING_REVIEW', 'priority': None, 'attempt_count': 1, 'worker_id': 'worker_test', 'claimed_at': '2026-08-23T22:19:06.083089', 'completed_at': '2026-08-23T22:19:06.118090', 'created_at': '2026-08-23T22:19:06.050567'}
