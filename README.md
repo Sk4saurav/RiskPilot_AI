@@ -1,7 +1,5 @@
 <div align="center">
-  <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/c/c2/GitHub_Invertocat_Logo.svg/1200px-GitHub_Invertocat_Logo.svg.png" width="100" alt="Logo"/>
-  
-  # 🛡️ RiskPilot AI
+  <h1>🛡️ RiskPilot AI</h1>
   
   **RiskPilot recommends. The analyst decides.**
   
