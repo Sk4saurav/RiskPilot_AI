@@ -324,6 +324,201 @@ async def get_validation_report(
         
     res_query = await db.execute(select(ValidationResult).where(ValidationResult.run_id == latest_run.id))
     results = res_query.scalars().all()
+@router.get(
+    "/{case_id}/evidence",
+    summary="Get Case Evidence",
+    description="Retrieve all evidence collected during the investigation of a case."
+)
+async def get_case_evidence(
+    case_id: str, 
+    db: AsyncSession = Depends(get_db),
+    org_id: str = Depends(get_current_organization)
+):
+    # Verify ownership
+    case_res = await db.execute(select(RiskCase).where(RiskCase.id == case_id, RiskCase.organization_id == org_id))
+    if not case_res.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="Case not found")
+
+    # First find investigation
+    from packages.domain import Investigation
+    inv_result = await db.execute(
+        select(Investigation).where(Investigation.risk_case_id == case_id)
+    )
+    investigations = inv_result.scalars().all()
+    
+    if not investigations:
+        return []
+        
+    # Get all evidence for all investigations of this case
+    inv_ids = [inv.id for inv in investigations]
+    ev_result = await db.execute(
+        select(Evidence).where(Evidence.investigation_id.in_(inv_ids))
+    )
+    evidence_list = ev_result.scalars().all()
+    
+    return [
+        {
+            "id": ev.id,
+            "type": ev.evidence_type,
+            "value": ev.value,
+            "severity": ev.severity,
+            "confidence": ev.confidence,
+            "explanation": ev.explanation,
+            "created_at": ev.created_at
+        }
+        for ev in evidence_list
+    ]
+
+@router.get("/{case_id}/assessment")
+async def get_case_assessment(
+    case_id: str, 
+    db: AsyncSession = Depends(get_db),
+    org_id: str = Depends(get_current_organization)
+):
+    # Verify ownership
+    case_res = await db.execute(select(RiskCase).where(RiskCase.id == case_id, RiskCase.organization_id == org_id))
+    if not case_res.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="Case not found")
+
+    result = await db.execute(
+        select(RiskAssessment).where(RiskAssessment.risk_case_id == case_id)
+    )
+    assessment = result.scalar_one_or_none()
+    
+    if not assessment:
+        raise HTTPException(status_code=404, detail="Assessment not found")
+        
+    return {
+        "id": assessment.id,
+        "risk_score": assessment.risk_score,
+        "recommendation": assessment.recommendation,
+        "rationale": assessment.rationale,
+        "policy_id": assessment.policy_id,
+        "policy_version": assessment.policy_version,
+        "created_at": assessment.created_at
+    }
+@router.post("/{case_id}/assign")
+async def assign_case(
+    case_id: str,
+    user_id: str,
+    db: AsyncSession = Depends(get_db),
+    org_id: str = Depends(get_current_organization)
+):
+    result = await db.execute(select(RiskCase).where(RiskCase.id == case_id, RiskCase.organization_id == org_id))
+    case = result.scalar_one_or_none()
+    
+    if not case:
+        raise HTTPException(status_code=404, detail="Case not found")
+        
+    case.assigned_to = user_id
+    await db.commit()
+    return {"status": "success", "assigned_to": user_id}
+
+from packages.domain.notes import CaseNote
+from packages.schemas.notes import CaseNoteCreate, CaseNoteResponse
+
+@router.post("/{case_id}/notes", response_model=CaseNoteResponse)
+async def create_note(
+    case_id: str,
+    note_data: CaseNoteCreate,
+    db: AsyncSession = Depends(get_db),
+    org_id: str = Depends(get_current_organization)
+    # user_id: str = Depends(get_authenticated_user)  # Ideally this
+):
+    import uuid
+    from packages.domain import AuditTrail
+    
+    # 1. Verify ownership
+    result = await db.execute(select(RiskCase).where(RiskCase.id == case_id, RiskCase.organization_id == org_id))
+    case = result.scalar_one_or_none()
+    if not case:
+        raise HTTPException(status_code=404, detail="Case not found")
+        
+    # 2. Create note
+    note = CaseNote(
+        id=f"note_{uuid.uuid4().hex[:12]}",
+        risk_case_id=case_id,
+        author_id="Current User", # Mock user since auth isn't fully integrated here for the caller
+        content=note_data.content
+    )
+    db.add(note)
+    
+    # 3. Create Audit
+    audit = AuditTrail(
+        id=f"audit_{uuid.uuid4().hex[:12]}",
+        entity_type="RiskCase",
+        entity_id=case_id,
+        action="NOTE_ADDED",
+        user_id="Current User",
+        metadata_json={"note_id": note.id}
+    )
+    db.add(audit)
+    
+    await db.commit()
+    await db.refresh(note)
+    return note
+
+@router.get("/{case_id}/notes", response_model=List[CaseNoteResponse])
+async def list_notes(
+    case_id: str,
+    db: AsyncSession = Depends(get_db),
+    org_id: str = Depends(get_current_organization)
+):
+    # 1. Verify ownership
+    result = await db.execute(select(RiskCase).where(RiskCase.id == case_id, RiskCase.organization_id == org_id))
+    case = result.scalar_one_or_none()
+    if not case:
+        raise HTTPException(status_code=404, detail="Case not found")
+        
+    # 2. Fetch notes
+    result = await db.execute(
+        select(CaseNote).where(CaseNote.risk_case_id == case_id).order_by(CaseNote.created_at.asc())
+    )
+    return result.scalars().all()
+
+@router.post("/{case_id}/start_review")
+async def start_review(
+    case_id: str,
+    db: AsyncSession = Depends(get_db),
+    org_id: str = Depends(get_current_organization)
+):
+    """Record that an analyst has opened the case to begin manual review."""
+    from datetime import datetime
+    
+    result = await db.execute(select(RiskCase).where(RiskCase.id == case_id, RiskCase.organization_id == org_id))
+    case = result.scalar_one_or_none()
+    
+    if not case:
+        raise HTTPException(status_code=404, detail="Case not found")
+        
+    if not case.analyst_review_started_at:
+        case.analyst_review_started_at = datetime.utcnow()
+        await db.commit()
+        
+    return {"status": "success", "analyst_review_started_at": case.analyst_review_started_at}
+
+@router.get("/validation/report")
+async def get_validation_report(
+    db: AsyncSession = Depends(get_db),
+    org_id: str = Depends(get_current_organization)
+):
+    from packages.domain.validation import ReplayRun, ValidationResult, ReplayEvent
+    from sqlalchemy import desc
+    
+    # Get latest run for the org
+    run_res = await db.execute(
+        select(ReplayRun)
+        .where(ReplayRun.organization_id == org_id)
+        .order_by(desc(ReplayRun.created_at))
+        .limit(1)
+    )
+    latest_run = run_res.scalar_one_or_none()
+    
+    if not latest_run:
+        return {"total_replayed": 0}
+        
+    res_query = await db.execute(select(ValidationResult).where(ValidationResult.run_id == latest_run.id))
+    results = res_query.scalars().all()
     
     total_cases = len(results)
     if total_cases == 0:
@@ -334,7 +529,11 @@ async def get_validation_report(
     total_manual_analyst_sec = 0
     total_rp_inv_sec = 0
     total_rp_analyst_sec = 0
-    false_positives = 0
+    
+    tp = 0
+    fp = 0
+    tn = 0
+    fn = 0
     decision_matches = 0
     
     for r in results:
@@ -351,12 +550,28 @@ async def get_validation_report(
             
         md = (ev.manual_decision or "").upper()
         rd = (r.riskpilot_recommendation or "").upper()
-        if rd in ["ESCALATE", "HOLD"] and md == "APPROVE":
-            false_positives += 1
+        
+        is_rp_fraud = rd in ["ESCALATE", "HOLD"]
+        is_manual_fraud = md in ["ESCALATE", "HOLD"]
+        
+        if is_rp_fraud and is_manual_fraud:
+            tp += 1
+        elif is_rp_fraud and not is_manual_fraud:
+            fp += 1
+        elif not is_rp_fraud and not is_manual_fraud:
+            tn += 1
+        elif not is_rp_fraud and is_manual_fraud:
+            fn += 1
             
     total_manual_sec = total_manual_inv_sec + total_manual_analyst_sec
     total_rp_sec = total_rp_inv_sec + total_rp_analyst_sec
     time_saved_sec = total_manual_sec - total_rp_sec
+    
+    precision = (tp / (tp + fp) * 100) if (tp + fp) > 0 else 100.0
+    recall = (tp / (tp + fn) * 100) if (tp + fn) > 0 else 100.0
+    
+    # Assume $150 cost per False Positive (lifetime value churn / manual support cost)
+    fp_cost = fp * 150
     
     return {
         "total_replayed": total_cases,
@@ -366,7 +581,10 @@ async def get_validation_report(
             "manual_baseline_avg_min": round((total_manual_sec / 60) / total_cases, 1),
             "riskpilot_inv_avg_min": round((total_rp_inv_sec / 60) / total_cases, 1),
             "analyst_review_avg_min": round((total_rp_analyst_sec / 60) / total_cases, 1),
-            "false_positive_rate_pct": round((false_positives / total_cases) * 100, 1),
-            "decision_overturn_rate_pct": round(((total_cases - decision_matches) / total_cases) * 100, 1)
+            "false_positive_rate_pct": round((fp / total_cases) * 100, 1),
+            "decision_overturn_rate_pct": round(((total_cases - decision_matches) / total_cases) * 100, 1),
+            "precision_pct": round(precision, 1),
+            "recall_pct": round(recall, 1),
+            "false_positive_cost_usd": fp_cost
         }
     }

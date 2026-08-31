@@ -119,6 +119,26 @@ export default function ValidationDashboard() {
               <td style={{ padding: '1rem' }}>—</td>
             </tr>
             <tr style={{ borderBottom: '1px solid var(--border-color)' }}>
+              <td style={{ padding: '1rem' }}>Precision (Held-out Test)</td>
+              <td style={{ padding: '1rem', fontWeight: 'bold' }}>{metrics.precision_pct}%</td>
+              <td style={{ padding: '1rem', color: 'var(--text-muted)' }}>&ge; 80%</td>
+              <td style={{ padding: '1rem' }}>{metrics.precision_pct >= 80 ? '🟢' : '🔴'}</td>
+            </tr>
+            <tr style={{ borderBottom: '1px solid var(--border-color)' }}>
+              <td style={{ padding: '1rem' }}>Recall (Held-out Test)</td>
+              <td style={{ padding: '1rem', fontWeight: 'bold' }}>{metrics.recall_pct}%</td>
+              <td style={{ padding: '1rem', color: 'var(--text-muted)' }}>&ge; 70%</td>
+              <td style={{ padding: '1rem' }}>{metrics.recall_pct >= 70 ? '🟢' : '🔴'}</td>
+            </tr>
+            <tr style={{ borderBottom: '1px solid var(--border-color)' }}>
+              <td style={{ padding: '1rem' }}>False-Positive Cost</td>
+              <td style={{ padding: '1rem', fontWeight: 'bold', color: 'var(--status-low)' }}>
+                ${metrics.false_positive_cost_usd?.toLocaleString() || 0}
+              </td>
+              <td style={{ padding: '1rem', color: 'var(--text-muted)' }}>$150 / FP</td>
+              <td style={{ padding: '1rem' }}>—</td>
+            </tr>
+            <tr style={{ borderBottom: '1px solid var(--border-color)' }}>
               <td style={{ padding: '1rem' }}>Copilot Hallucinations</td>
               <td style={{ padding: '1rem', fontWeight: 'bold' }}>Pending Analyst Review</td>
               <td style={{ padding: '1rem', color: 'var(--text-muted)' }}>0</td>
