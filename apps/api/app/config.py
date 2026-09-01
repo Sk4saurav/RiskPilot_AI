@@ -1,8 +1,11 @@
+import os
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+DB_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'riskpilot.db'))
 
 class Settings(BaseSettings):
     api_env: str = "development"
-    database_url: str = "sqlite+aiosqlite:///./riskpilot.db"
+    database_url: str = f"sqlite+aiosqlite:///{DB_PATH}"
     cors_origins: str = "*"
     
     worker_id: str = "worker_default"

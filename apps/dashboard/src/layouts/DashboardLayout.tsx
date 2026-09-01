@@ -18,7 +18,7 @@ export const DashboardLayout = () => {
             className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
           >
             <Shield size={18} />
-            Case Queue
+            Operations
           </NavLink>
           <NavLink 
             to="/analytics" 
@@ -28,18 +28,11 @@ export const DashboardLayout = () => {
             Analytics
           </NavLink>
           <NavLink 
-            to="/integrations" 
-            className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
-          >
-            <Database size={18} />
-            Integrations
-          </NavLink>
-          <NavLink 
-            to="/system-status" 
+            to="/reliability-lab" 
             className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
           >
             <Activity size={18} />
-            System Status
+            Reliability Lab
           </NavLink>
         </nav>
       </aside>

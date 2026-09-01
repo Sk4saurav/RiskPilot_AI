@@ -9,6 +9,8 @@ from .relationships import Relationship
 from .webhooks import WebhookEndpoint, WebhookDelivery
 from .notes import CaseNote
 from .validation import ReplayDataset, ReplayEvent, ReplayRun, ValidationResult
+from .idempotency import IdempotencyKey
+from .history import EventHistory
 
 __all__ = [
     "Base",
@@ -28,5 +30,7 @@ __all__ = [
     "Relationship",
     "WebhookEndpoint",
     "WebhookDelivery",
-    "CaseNote"
+    "CaseNote",
+    "IdempotencyKey",
+    "EventHistory"
 ]

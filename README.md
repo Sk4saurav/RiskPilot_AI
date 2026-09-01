@@ -3,7 +3,7 @@
   
   **RiskPilot recommends. The analyst decides.**
   
-  *An intelligent, event-driven fraud investigation platform designed to slash manual review times from 25 minutes to 1 minute.*
+  *RiskPilot is an independently testable payment-risk infrastructure prototype demonstrating deterministic risk assessment, concurrency-safe idempotency, reliable webhook delivery, UPI abuse detection, tenant isolation, and measurable analyst time savings.*
 
   [![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
   [![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-00a393.svg)](https://fastapi.tiangolo.com/)
@@ -18,11 +18,16 @@
 Fraud and risk analysts spend significant time manually gathering evidence across multiple systems before making a decision. 
 RiskPilot automatically gathers and correlates investigation evidence, applies deterministic risk scoring and policy rules, and presents the result to a human analyst through an AI Copilot.
 
-✨ **Key Features:**
-- ⚡ **True Event-Driven Microservices:** Zero monolithic background tasks. API decoupled from Worker processing.
-- 🤖 **AI Copilot Synthesis:** Summarizes massive evidence graphs into human-readable narratives.
-- 🔒 **Safe Concurrency:** Built-in lock management for reliable SQLite multi-worker polling.
-- 🔌 **100% Real API Integrations:** Drop in your keys for OpenAI and IPInfo to run real live investigations.
+This prototype validates the core backend resilience required for a payment intelligence platform before introducing heavier tools like Kafka or Kubernetes.
+
+✨ **The 7 Architectural Invariants:**
+1. **Never block the ingest API:** Ingestion must accept events in < 50ms and return 202 Accepted.
+2. **Idempotency is concurrency-safe:** Identical payloads arriving simultaneously must yield exactly 1 investigation.
+3. **Decoupled investigation worker:** Investigations run asynchronously, isolated from the web server.
+4. **Deterministic evidence:** The `RuleEvaluator` only acts upon cryptographically hashed, reproducible facts.
+5. **Decoupled webhook delivery:** Downstream event propagation uses a strict outbox pattern with exponential backoff.
+6. **Strict tenant isolation:** Risk models, rules, and events are strictly isolated by API key bounds.
+7. **Human-in-the-loop:** The system aggregates risk, but high-severity cases block on explicit analyst approval.
 
 ---
 
@@ -30,62 +35,46 @@ RiskPilot automatically gathers and correlates investigation evidence, applies d
 
 ```mermaid
 graph TD
-    A[Customer / Design Partner] -->|POST /v1/events/ingest| B(FastAPI)
-    B -->|Persists Event| C[(SQLite DB Queue)]
-    C -->|Claims Pending Event| D[Background Investigation Worker]
+    A[Customer API Client] -->|POST /v1/events/ingest| B(Ingest Router + Idempotency)
+    B -->|202 Accepted / DB Queue| C[(Event Data Store)]
+    C -->|Polling Worker| D[InvestigationRunner]
     
-    subgraph Intelligence Adapters
-    D --> E(Network/IP)
-    D --> F(Device Fingerprint)
-    D --> G(Transaction History)
+    subgraph Evidence Graph Investigators
+    D --> E(UPI Relationship Extractor)
+    D --> F(IP/Network Intelligence)
+    D --> G(Device Velocity)
     end
     
-    D -->|Risk Assessment Score| H{Policy Engine}
-    H -->|PENDING_REVIEW| I[React Dashboard]
-    I -->|Analyst Decision| J(Resolved)
+    D -->|Evidence Facts| H{Policy Engine}
+    H -->|PENDING_REVIEW| I[Analyst Dashboard]
+    I -->|Analyst Decision| J(Resolved Event)
+    J -->|Outbox Pattern| K(Webhook Dispatcher)
+    K -->|Signed Payload| L[Customer Endpoint]
 ```
 
 ---
 
-## 🚀 Quick Start Guide
+## 🚀 Quick Start & Evaluation Guide
 
-### 1. Configure your Environment
-Copy the example environment file and optionally add your premium API keys.
-```bash
-cp .env.example .env
-```
-*(Note: If you leave the keys blank, the system gracefully falls back to deterministic mocks and free unauthenticated API tiers!)*
+RiskPilot has been engineered to be independently verified by technical evaluators.
 
-### 2. Start the Backend API
-Run the FastAPI server on port 8000:
-```bash
-python -m uvicorn apps.api.app.main:app --port 8000
+### 1. One-Command Setup
+We provide a single bootstrap script for Windows PowerShell that initializes the database, starts the API, starts the background workers, and spins up the React Dashboard automatically.
+
+```powershell
+.\start-demo.ps1
 ```
 
-### 3. Start the Background Worker
-Open a new terminal and start the async investigation worker:
-```bash
-python -m workers.investigation.main
+### 2. The Golden Evaluation Flow
+To evaluate the end-to-end functionality of the system—from a synthetic API ingestion to the detection of a UPI abuse ring and outbox webhook delivery—run the customer simulator:
+
+```powershell
+.\run-evaluation.ps1
 ```
+This will trigger the synthetic "UPI Ring" attack scenario, generating deterministic risk signals that you can immediately observe in the dashboard.
 
-### 4. Start the Dashboard UI
-Open a third terminal for the React dashboard:
-```bash
-cd apps/dashboard
-npm install
-npm run dev
-```
-Navigate to `http://localhost:5173` to view the beautiful dashboard!
-
----
-
-## 🧪 Triggering a Live Case
-
-Want to see it in action? Run the live case trigger script.
-```bash
-python tools/trigger_live_case.py
-```
-Watch your terminal as the API ingests the event, the background worker picks it up, queries live IP addresses, calculates a risk score, and pushes it to the dashboard for human review!
+### 3. Verify the Engineering Claims
+See the **[EVALUATION.md](EVALUATION.md)** artifact for explicit commands to verify idempotency, webhook reliability, isolation, and deterministic reproducibility in the Chaos Lab.
 
 ---
 
@@ -97,26 +86,10 @@ Watch your terminal as the API ingests the event, the background worker picks it
 | **Worker Engine** | AsyncIO + Python | Reliable background polling mechanism |
 | **Database** | SQLite + SQLAlchemy | Strict relational data models |
 | **Dashboard** | React + Vite | Clean, component-based Analyst UI |
-| **AI Copilot** | OpenAI (GPT-4o) | Evidence summarization and chat |
-| **Geospatial** | IPInfo / IP-API | Live IP/ASN intelligence adapters |
+| **Chaos Lab** | Pytest + httpx | Infrastructure resilience verification |
 
 ---
 
-## 📈 Held-Out Validation Metrics
-RiskPilot has been rigorously tested against a held-out test set of historical transaction data. The Validation Scorecard tracks standard ML defense metrics including:
-- **Precision & Recall** to guarantee the risk engine accurately identifies fraud.
-- **False-Positive Cost ($)** explicitly tracked to measure revenue impact of blocking legitimate users.
-- **Time Saved** (averaging 96% reduction in manual analyst investigation time).
-
----
-
-## 🔒 Security & Reliability
-
-- **Tenant Isolation**: All database queries are explicitly filtered by `organization_id`.
-- **Graceful Degradation**: If the LLM provider fails, the Copilot automatically falls back to deterministic rule-based explanations without interrupting the system.
-- **Least Privilege**: The Copilot only has read access to evidence and cannot modify risk scores or execute policies.
-
----
 <div align="center">
 <i>Built for the modern risk analyst.</i>
 </div>

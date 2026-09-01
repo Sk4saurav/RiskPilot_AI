@@ -137,7 +137,8 @@ async def run():
                 "threshold": 50, 
                 "positive_history_tiers": {"1": -5, "2-4": -10, "5+": -15},
                 "customer_support_verification": -30,
-                "vip_status": -30
+                "vip_status": -30,
+                "upi_abuse_ring": 25
             }
             thresholds = {
                 "rules": [

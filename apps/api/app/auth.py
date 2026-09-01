@@ -63,6 +63,9 @@ async def get_authenticated_user(
     credentials: HTTPAuthorizationCredentials = Security(security),
     db: AsyncSession = Depends(get_db)
 ):
+    import traceback
+    print("get_authenticated_user CALLED!")
+    traceback.print_stack()
     token = credentials.credentials
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])

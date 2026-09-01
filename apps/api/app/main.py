@@ -27,28 +27,40 @@ async def webhook_retry_worker():
     while True:
         try:
             async with async_session() as session:
-                # Find pending retries
+                # Find pending deliveries or retries ready to go
                 stmt = select(WebhookDelivery).join(WebhookEndpoint).where(
-                    WebhookDelivery.is_successful == False,
-                    WebhookDelivery.next_retry_at != None,
-                    WebhookDelivery.next_retry_at <= datetime.utcnow(),
-                    WebhookDelivery.attempt_count < 5,
-                    WebhookEndpoint.is_active == True
-                )
+                    WebhookDelivery.status.in_(["PENDING", "RETRY_WAIT"]),
+                    WebhookEndpoint.is_active == True,
+                    (WebhookDelivery.next_retry_at == None) | (WebhookDelivery.next_retry_at <= datetime.utcnow()),
+                    WebhookDelivery.attempt_count < 5
+                ).limit(50)
+                
                 deliveries = (await session.execute(stmt)).scalars().all()
                 
                 if deliveries:
+                    # Mark all as DELIVERING to lock them
+                    for d in deliveries:
+                        d.status = "DELIVERING"
+                    await session.commit()
+                    
                     async with httpx.AsyncClient() as client:
                         for delivery in deliveries:
-                            # Re-fetch endpoint explicitly if needed, but it's joined
+                            # Refetch endpoint
                             endpoint = await session.get(WebhookEndpoint, delivery.endpoint_id)
                             if not endpoint:
+                                delivery.status = "FAILED"
+                                delivery.last_error = "Endpoint missing"
                                 continue
                                 
+                            # Timestamp and payload
+                            timestamp = str(int(datetime.utcnow().timestamp()))
                             payload_str = json.dumps(delivery.payload, separators=(',', ':'))
+                            signed_payload = f"{timestamp}.{payload_str}"
+                            
+                            # Generate HMAC signature
                             signature = hmac.new(
                                 endpoint.secret.encode('utf-8'),
-                                payload_str.encode('utf-8'),
+                                signed_payload.encode('utf-8'),
                                 hashlib.sha256
                             ).hexdigest()
                             
@@ -60,30 +72,43 @@ async def webhook_retry_worker():
                                     content=payload_str,
                                     headers={
                                         "Content-Type": "application/json",
-                                        "X-RiskPilot-Event": delivery.event_type,
+                                        "X-RiskPilot-Event-ID": delivery.event_id,
+                                        "X-RiskPilot-Timestamp": timestamp,
                                         "X-RiskPilot-Signature": signature
                                     },
                                     timeout=5.0
                                 )
                                 delivery.status_code = str(response.status_code)
-                                delivery.is_successful = 200 <= response.status_code < 300
-                                if delivery.is_successful:
+                                is_successful = 200 <= response.status_code < 300
+                                
+                                if is_successful:
+                                    delivery.status = "DELIVERED"
                                     delivery.delivered_at = datetime.utcnow()
                                     delivery.next_retry_at = None
+                                    delivery.last_error = None
                                 else:
-                                    delivery.last_error = response.text
-                                    delivery.next_retry_at = datetime.utcnow() + timedelta(minutes=delivery.attempt_count * 2)
+                                    delivery.last_error = f"HTTP {response.status_code}: {response.text[:200]}"
+                                    if delivery.attempt_count >= 5:
+                                        delivery.status = "FAILED"
+                                        delivery.next_retry_at = None
+                                    else:
+                                        delivery.status = "RETRY_WAIT"
+                                        delivery.next_retry_at = datetime.utcnow() + timedelta(seconds=2 ** delivery.attempt_count)
                             except Exception as e:
                                 delivery.status_code = "ERROR"
-                                delivery.is_successful = False
-                                delivery.last_error = str(e)
-                                delivery.next_retry_at = datetime.utcnow() + timedelta(minutes=delivery.attempt_count * 2)
+                                delivery.last_error = str(e)[:200]
+                                if delivery.attempt_count >= 5:
+                                    delivery.status = "FAILED"
+                                    delivery.next_retry_at = None
+                                else:
+                                    delivery.status = "RETRY_WAIT"
+                                    delivery.next_retry_at = datetime.utcnow() + timedelta(seconds=2 ** delivery.attempt_count)
                                 
                     await session.commit()
         except Exception as e:
-            print(f"Webhook retry worker error: {e}")
+            print(f"Webhook dispatcher worker error: {e}")
             
-        await asyncio.sleep(10) # Poll every 10 seconds
+        await asyncio.sleep(2) # Poll quickly for dev demo
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -125,6 +150,8 @@ app.include_router(validation.router)
 app.include_router(copilot.router)
 app.include_router(realtime.router)
 app.include_router(webhooks.router)
+from apps.api.app.routers import simulator
+app.include_router(simulator.router)
 from apps.api.app.routers import metrics
 app.include_router(metrics.router)
 
@@ -144,6 +171,9 @@ from fastapi.responses import JSONResponse
 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
+    import traceback
+    print(f"HTTPException: {exc.status_code} {exc.detail}")
+    traceback.print_stack()
     return JSONResponse(
         status_code=exc.status_code,
         content={

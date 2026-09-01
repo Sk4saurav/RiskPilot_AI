@@ -16,6 +16,7 @@ class EvidenceBuilder:
             "positive_transaction_history": ("positive_history", "LOW", 0), # Weight will be dynamically applied by PolicyEngine
             "SUPPORT_TICKET_ACTIVE": ("customer_support_verification", "LOW", 0),
             "VIP_ACCOUNT": ("vip_status", "LOW", 0),
+            "upi_abuse_ring": ("upi_abuse_ring", "HIGH", 0), # Weight applied by Policy
         }
 
     def build_evidence(self, investigation_id: str, facts: List[InvestigationFact]) -> List[Evidence]:

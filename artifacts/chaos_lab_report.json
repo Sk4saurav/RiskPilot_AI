@@ -1,0 +1,96 @@
+{
+  "run_id": "chaos_2026_09_01_165429",
+  "tests": 7,
+  "passed": 7,
+  "failed": 0,
+  "reliability_score": 100,
+  "data_loss": 0,
+  "duplicate_cases": 0,
+  "duplicate_webhooks": 0,
+  "tenant_leaks": 0,
+  "details": [
+    {
+      "name": "10 concurrent identical events",
+      "passed": true,
+      "expected": "1 case",
+      "actual": "1 cases",
+      "evidence": {
+        "status_codes": [
+          200,
+          200,
+          200,
+          200,
+          200,
+          200,
+          200,
+          200,
+          200,
+          200
+        ],
+        "cases_created": 1
+      }
+    },
+    {
+      "name": "Same key + different payload",
+      "passed": true,
+      "expected": "409 on payload mismatch",
+      "actual": "r1=200, r2=409",
+      "evidence": {
+        "r1": 200,
+        "r2": 409
+      }
+    },
+    {
+      "name": "Webhook 500 -> 200",
+      "passed": true,
+      "expected": "Recovered on attempt > 1",
+      "actual": "status=DELIVERED, attempts=2",
+      "evidence": {
+        "status": "DELIVERED",
+        "attempts": 2
+      }
+    },
+    {
+      "name": "Webhook timeout -> 200",
+      "passed": true,
+      "expected": "Recovered on attempt > 1",
+      "actual": "status=DELIVERED, attempts=2",
+      "evidence": {
+        "status": "DELIVERED",
+        "attempts": 2
+      }
+    },
+    {
+      "name": "Invalid HMAC",
+      "passed": true,
+      "expected": "Rejected by receiver",
+      "actual": "status_code=401",
+      "evidence": {
+        "status_code": "401"
+      }
+    },
+    {
+      "name": "Tenant A -> Tenant B",
+      "passed": true,
+      "expected": "0 leakage",
+      "actual": "1 cases for A, 1 for B",
+      "evidence": {
+        "cases_a": 1,
+        "cases_b": 1
+      }
+    },
+    {
+      "name": "Controlled investigation delay",
+      "passed": true,
+      "expected": "No duplicates",
+      "actual": "1 cases, statuses: [200, 200]",
+      "evidence": {
+        "cases": 1,
+        "status_codes": [
+          200,
+          200
+        ]
+      }
+    }
+  ]
+}

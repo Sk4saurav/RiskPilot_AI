@@ -8,7 +8,7 @@ from sqlalchemy import select
 from apps.api.app.database import get_db
 from apps.api.app.auth import get_current_organization
 from packages.domain.webhooks import WebhookEndpoint
-from packages.schemas.webhooks import WebhookEndpointCreate, WebhookEndpointResponse, WebhookEndpointCreateResponse
+from packages.schemas.webhooks import WebhookEndpointCreate, WebhookEndpointResponse, WebhookEndpointCreateResponse, WebhookDeliveryResponse
 
 router = APIRouter(
     prefix="/v1/webhooks",
@@ -70,3 +70,16 @@ async def delete_webhook_endpoint(
     endpoint.is_active = False
     await db.commit()
     return {"status": "success", "message": "Endpoint deleted"}
+
+@router.get("/deliveries", response_model=List[WebhookDeliveryResponse], summary="List Webhook Deliveries")
+async def list_webhook_deliveries(
+    db: AsyncSession = Depends(get_db),
+    org_id: str = Depends(get_current_organization)
+):
+    from packages.domain.webhooks import WebhookDelivery
+    stmt = select(WebhookDelivery).where(
+        WebhookDelivery.organization_id == org_id
+    ).order_by(WebhookDelivery.created_at.desc()).limit(100)
+    
+    result = await db.execute(stmt)
+    return result.scalars().all()

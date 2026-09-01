@@ -1,4 +1,4 @@
-from .generator import generate_normal_event, generate_suspicious_event, generate_critical_event, generate_false_positive_event
+from .generator import generate_normal_event, generate_suspicious_event, generate_critical_event, generate_false_positive_event, generate_upi_ring_events
 import random
 
 def generate_scenario_batch(scenario: str, count: int):
@@ -35,7 +35,13 @@ def generate_scenario_batch(scenario: str, count: int):
     elif scenario == "false_positive":
         for _ in range(count):
             events.append(generate_false_positive_event())
+    elif scenario == "upi_ring":
+        # Each count is 4 events, so total events = count * 4
+        for _ in range(count):
+            events.extend(generate_upi_ring_events())
     else:
         raise ValueError(f"Unknown scenario: {scenario}")
+        
+    return events
         
     return events

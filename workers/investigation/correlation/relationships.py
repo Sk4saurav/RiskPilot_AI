@@ -25,5 +25,15 @@ class RelationshipBuilder:
                     target_id=fact.value["device_id"],
                     relationship_type="used"
                 ))
+            if fact.fact_type in ["upi_velocity", "upi_abuse_ring"]:
+                device_id = fact.value.get("device_id")
+                vpa_list = fact.value.get("vpa_list", [])
+                for vpa in vpa_list:
+                    relationships.append(Relationship(
+                        id=f"rel_{uuid.uuid4().hex[:12]}",
+                        source_id=device_id,
+                        target_id=vpa,
+                        relationship_type="associated_vpa"
+                    ))
                 
         return relationships

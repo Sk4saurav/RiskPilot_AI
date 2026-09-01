@@ -52,3 +52,23 @@ def generate_false_positive_event(customer_id="CUST-1042"):
         "device": {"is_new": False, "type": "known"},
         "location": {"city": "Mumbai", "country": "IN"}
     }
+
+def generate_upi_ring_events(customer_id="CUST-1042"):
+    # Generates a sequence of 4 events from the same device but different VPAs
+    device_id = f"dev_{uuid.uuid4().hex[:8]}"
+    base_time = datetime.now(timezone.utc)
+    events = []
+    
+    for i in range(4):
+        events.append({
+            "event_id": f"TX-UPI-{uuid.uuid4().hex[:8]}",
+            "event_type": "transaction",
+            "timestamp": get_iso_timestamp(), # They will all be very close in time, triggering velocity
+            "actor": {"user_id": customer_id},
+            "transaction": {"amount_cents": random.randint(500, 1500) * 100, "currency": "INR", "vpa": f"fraud_{i}@upi"},
+            "network": {"ip": "10.0.0.1"},
+            "device_id": device_id, # Top level device_id
+            "device": {"is_new": True, "type": "unknown", "id": device_id},
+            "location": {"city": "Mumbai", "country": "IN"}
+        })
+    return events

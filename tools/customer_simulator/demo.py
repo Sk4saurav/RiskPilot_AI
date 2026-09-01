@@ -10,8 +10,8 @@ async def run_interactive_demo(scenario_type: str, count: int, api_key: str, bas
     print("*          CUSTOMER SIMULATOR                 *")
     print("*                                             *")
     
-    events = generate_scenario_batch(scenario_type, 1) # Only run 1 for interactive demo
-    event = events[0]
+    events = generate_scenario_batch(scenario_type, 1) # Run 1 batch for interactive demo
+    event = events[-1] # The last event is the one we track
     
     tx_id = event.get("event_id", "UNKNOWN")
     amount = event.get("transaction", {}).get("amount_cents", 0) / 100.0
@@ -40,17 +40,20 @@ async def run_interactive_demo(scenario_type: str, count: int, api_key: str, bas
     import httpx
     try:
         async with httpx.AsyncClient() as hc:
-            resp = await hc.post(
-                f"{base_url}/v1/events/ingest",
-                json=event,
-                headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-                timeout=10.0
-            )
-            if resp.status_code >= 400:
-                print(f"Failed to ingest event: {resp.text}")
-                return
-            data = resp.json()
-            case_id = data.get("case_id")
+            case_id = None
+            for idx, ev in enumerate(events):
+                resp = await hc.post(
+                    f"{base_url}/v1/events/ingest",
+                    json=ev,
+                    headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                    timeout=10.0
+                )
+                if resp.status_code >= 400:
+                    print(f"Failed to ingest event: {resp.text}")
+                    return
+                data = resp.json()
+                if idx == len(events) - 1:
+                    case_id = data.get("case_id")
     except Exception as e:
         print(f"Error during ingestion: {e}")
         return
@@ -127,6 +130,14 @@ async def run_interactive_demo(scenario_type: str, count: int, api_key: str, bas
         severity = "MEDIUM"
         recommendation = "HOLD"
         human_decision = "HOLD"
+        is_override = False
+        override_reason = ""
+    elif scenario_type == "upi_ring":
+        evidence_count = 2
+        risk_score = 25
+        severity = "HIGH"
+        recommendation = "ESCALATE"
+        human_decision = "ESCALATE"
         is_override = False
         override_reason = ""
     else: # normal

@@ -17,19 +17,13 @@ from .evidence.builder import EvidenceBuilder
 from .correlation.relationships import RelationshipBuilder
 
 from packages.utils.logger import setup_logger, log_event
+from .investigators.repositories import SQLAlchemyUPIHistoryRepository
 
 logger = setup_logger("worker.investigation")
 
 class InvestigationService:
     def __init__(self):
-        self.investigators = [
-            TransactionInvestigator(),
-            DeviceInvestigator(),
-            LocationInvestigator(),
-            NetworkInvestigator(),
-            HistoryInvestigator(),
-            CustomerContextInvestigator()
-        ]
+        # We will lazily instantiate investigators that need a DB session inside investigate_case
         self.evidence_builder = EvidenceBuilder()
         self.relationship_builder = RelationshipBuilder()
         
@@ -50,6 +44,16 @@ class InvestigationService:
         event_payload = case.event.payload or {}
         org_id = case.event.organization_id
         
+        # Inject controlled failure for Chaos Lab
+        device_id = event_payload.get("device_id") or event_payload.get("device", {}).get("id") or ""
+        if isinstance(device_id, str) and "CHAOS_DELAY_" in device_id:
+            import asyncio
+            try:
+                delay_sec = int(device_id.split("CHAOS_DELAY_")[1])
+                await asyncio.sleep(delay_sec)
+            except ValueError:
+                pass
+        
         # 2. Create Investigation record
         investigation = Investigation(
             id=f"inv_{uuid.uuid4().hex[:12]}",
@@ -64,8 +68,27 @@ class InvestigationService:
         
         # 3. Collect Facts
         all_facts = []
-        for investigator in self.investigators:
-            res = await investigator.investigate(event_payload, {})
+        
+        from .investigators.upi import UPIInvestigator
+        upi_repo = SQLAlchemyUPIHistoryRepository(session)
+        
+        investigators = [
+            TransactionInvestigator(),
+            DeviceInvestigator(),
+            LocationInvestigator(),
+            NetworkInvestigator(),
+            HistoryInvestigator(),
+            CustomerContextInvestigator(),
+            UPIInvestigator(repository=upi_repo, config={"distinct_vpa_threshold": 3})
+        ]
+        
+        context = {
+            "org_id": org_id,
+            "event_timestamp": case.event.timestamp
+        }
+        
+        for investigator in investigators:
+            res = await investigator.investigate(event_payload, context)
             all_facts.extend(res.facts)
             
         # Audit: Facts Collected

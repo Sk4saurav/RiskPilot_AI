@@ -34,7 +34,7 @@ class RiskCase(Base):
     
     # Valid transitions from each state
     VALID_TRANSITIONS = {
-        "NEW": ["INVESTIGATING"],
+        "NEW": ["INVESTIGATING", "PENDING_REVIEW", "RESOLVED"],
         "INVESTIGATING": ["PENDING_REVIEW", "MANUAL_REVIEW_REQUIRED", "NEW"], # NEW for retry/stale recovery
         "PENDING_REVIEW": ["ESCALATED", "RESOLVED", "FALSE_POSITIVE"],
         "ESCALATED": ["PENDING_REVIEW"],

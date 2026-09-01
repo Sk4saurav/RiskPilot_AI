@@ -9,7 +9,7 @@ class Event(Base):
     
     # Event IDs must be unique internally.
     id = Column(String, primary_key=True)
-    event_id = Column(String, unique=True, nullable=False)
+    event_id = Column(String, nullable=False)
     
     organization_id = Column(String, ForeignKey('organizations.id'), nullable=False)
     source = Column(String, nullable=False)

@@ -18,12 +18,15 @@ class WebhookEndpoint(Base):
 class WebhookDelivery(Base):
     __tablename__ = 'webhook_deliveries'
     id = Column(String, primary_key=True)
+    organization_id = Column(String, ForeignKey('organizations.id'), nullable=False)
     endpoint_id = Column(String, ForeignKey('webhook_endpoints.id'), nullable=False)
+    case_id = Column(String, ForeignKey('risk_cases.id'), nullable=True)
     event_type = Column(String, nullable=False)
     event_id = Column(String, nullable=False)
     payload = Column(JSON, nullable=False)
+    payload_hash = Column(String, nullable=False)
+    status = Column(String, default="PENDING") # PENDING, DELIVERING, RETRY_WAIT, DELIVERED, FAILED
     status_code = Column(String, nullable=True)
-    is_successful = Column(Boolean, default=False)
     
     # Retry logic
     attempt_count = Column(Integer, default=1)
@@ -34,3 +37,5 @@ class WebhookDelivery(Base):
     delivered_at = Column(DateTime, nullable=True)
 
     endpoint = relationship("WebhookEndpoint")
+    organization = relationship("Organization")
+    case = relationship("RiskCase")
